@@ -155,6 +155,119 @@ export default {
         );
       }
     }
+    
+    // ==========================================
+    // ☁️ ROUTE 3: SEND CLOUD BACKUP
+    // ==========================================
+    if (url.pathname === "/send-backup" && request.method === "POST") {
+      try {
+        const { email, backupData, hint, deviceId, isEmergencyReset } = await request.json();
+        
+        if (!email || !backupData) throw new Error("Email and backup data required");
+        const normalizedEmail = email.toLowerCase().trim();
+        
+        // Convert the backup string into a base64 encoded string so Brevo can attach it
+        const base64Backup = btoa(unescape(encodeURIComponent(backupData)));
+        
+        const mailSubject = isEmergencyReset ? "🚨 SafeLocker: EMERGENCY RESET BACKUP" : "SafeLocker: Secure Cloud Backup";
+        const mailContent = `
+              <div style="font-family: sans-serif; text-align: left; padding: 20px;">
+                <h2>Your SafeLocker Backup is Here</h2>
+                <p>Attached is your encrypted vault backup file. Save it somewhere secure.</p>
+                <p><strong>Device Info:</strong> ${deviceId || 'Unknown'}</p>
+                <p><strong>PIN Hint:</strong> ${hint || 'None'}</p>
+                ${isEmergencyReset ? '<p style="color:red; font-weight:bold;">This backup was generated during a secure device wipe.</p>' : ''}
+              </div>`;
+
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "api-key": env.BREVO_API_KEY,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
+            to: [{ email: normalizedEmail }],
+            subject: mailSubject,
+            htmlContent: mailContent,
+            attachment: [
+              {
+                content: base64Backup,
+                name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.json`
+              }
+            ]
+          })
+        });
+
+        if (!brevoRes.ok) throw new Error("Email provider failed to send backup");
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Backup sent successfully!" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ success: false, message: error.message || "Failed to send backup." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // ==========================================
+    // 🌪️ ROUTE 4: SEND WIPE BACKUP
+    // ==========================================
+    if (url.pathname === "/send-wipe-backup" && request.method === "POST") {
+      try {
+        const { email, backupData, device, time } = await request.json();
+        
+        if (!email || !backupData) throw new Error("Email and backup data required");
+        const normalizedEmail = email.toLowerCase().trim();
+        
+        const backupString = typeof backupData === 'string' ? backupData : JSON.stringify(backupData);
+        const base64Backup = btoa(unescape(encodeURIComponent(backupString)));
+
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "api-key": env.BREVO_API_KEY,
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({
+            sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
+            to: [{ email: normalizedEmail }],
+            subject: "🚨 SafeLocker: FINAL VAULT WIPE BACKUP",
+            htmlContent: `
+              <div style="font-family: sans-serif; text-align: left; padding: 20px;">
+                <h2 style="color: #EF4444;">Final Encrypted Backup</h2>
+                <p>This is the final automated backup generated right before your SafeLocker vault was wiped.</p>
+                <p><strong>Device:</strong> ${device || 'Unknown'}</p>
+                <p><strong>Time:</strong> ${time || 'Unknown'}</p>
+                <p>Please store the attached file securely. You can restore it later using the "Import secure backup" option.</p>
+              </div>`,
+            attachment: [
+              {
+                content: base64Backup,
+                name: `SafeLocker_Wipe_Backup_${Date.now()}.json`
+              }
+            ]
+          })
+        });
+
+        if (!brevoRes.ok) throw new Error("Email provider failed to send wipe backup");
+
+        return new Response(
+          JSON.stringify({ success: true, message: "Wipe Backup sent successfully!" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        return new Response(
+          JSON.stringify({ success: false, message: error.message || "Failed to send wipe backup." }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
 
     return new Response("Endpoint Not Found", { status: 404 });
   },
