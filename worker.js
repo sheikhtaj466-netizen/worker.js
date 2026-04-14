@@ -170,28 +170,31 @@ export default {
     }
 
     // ==========================================
-    // ☁️ ROUTE 3: SEND CLOUD BACKUP (CRASH FIX APPLIED)
+    // ☁️ ROUTE 3: SEND CLOUD BACKUP (STRICT AWAIT)
     // ==========================================
     if (url.pathname === "/send-backup" && request.method === "POST") {
       try {
         const { email, backupData, hint, deviceId, isEmergencyReset } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
         
-        // 🚀 SENIOR DEV FIX: Frontend ne pehle se Base64 bhej diya hai! Cloudflare ab hang nahi hoga!
-        const base64Backup = backupData; 
-        
-        const sendBackupPromise = fetch("https://api.brevo.com/v3/smtp/email", {
+        // 🚨 Strict Await: Wait for Brevo to confirm delivery
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
             subject: isEmergencyReset ? "🚨 SafeLocker: EMERGENCY RESET BACKUP" : "SafeLocker: Secure Cloud Backup",
             htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Your SafeLocker Backup</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.json` }]
+            attachment: [{ content: backupData, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.json` }]
           })
-        }).catch(e => console.log("Backup Delivery Error:", e));
+        });
 
-        ctx.waitUntil(sendBackupPromise);
+        // 🧠 Agar Brevo ne reject kiya, toh exact reason frontend ko bhejo
+        if (!brevoRes.ok) {
+           const errText = await brevoRes.text();
+           throw new Error(`Brevo Rejected: ${errText}`);
+        }
+
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error) {
          return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -199,35 +202,32 @@ export default {
     }
 
     // ==========================================
-    // 🌪️ ROUTE 4: SEND WIPE BACKUP (CRASH FIX APPLIED)
+    // 🌪️ ROUTE 4: SEND WIPE BACKUP (STRICT AWAIT)
     // ==========================================
     if (url.pathname === "/send-wipe-backup" && request.method === "POST") {
       try {
         const { email, backupData, device, time } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-        
-        // 🚀 SENIOR DEV FIX: Bypassed Heavy Math limit!
-        const base64Backup = backupData;
 
-        const sendWipePromise = fetch("https://api.brevo.com/v3/smtp/email", {
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
             subject: "🚨 SafeLocker: FINAL VAULT WIPE BACKUP",
             htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Final Encrypted Backup</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'}</p></div>`,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.json` }]
+            attachment: [{ content: backupData, name: `SafeLocker_Wipe_Backup_${Date.now()}.json` }]
           })
-        }).catch(e => console.log("Wipe Backup Error:", e));
+        });
 
-        ctx.waitUntil(sendWipePromise);
+        if (!brevoRes.ok) {
+           const errText = await brevoRes.text();
+           throw new Error(`Brevo Rejected: ${errText}`);
+        }
+
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error) {
         return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
-
-    return new Response("Endpoint Not Found", { status: 404 });
-  },
-};
-                        
+    
