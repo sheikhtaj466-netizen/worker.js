@@ -19,7 +19,7 @@ export default {
     const url = new URL(request.url);
 
     // ==========================================
-    // 🚀 ROUTE 1: SEND OTP (STYLE UNTOUCHED - FIRE & FORGET FIX)
+    // 🚀 ROUTE 1: SEND OTP (STYLE UNTOUCHED - IST TIME APPLIED)
     // ==========================================
     if (url.pathname === "/send-otp" && request.method === "POST") {
       try {
@@ -56,6 +56,9 @@ export default {
             </div>
           </td>
         `).join('');
+
+        // 🇮🇳 SENIOR DEV FIX: Cloudflare native IST Timezone conversion
+        const istTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
 
         const htmlTemplate = `
         <!DOCTYPE html>
@@ -100,7 +103,7 @@ export default {
                         <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #94A3B8; font-weight: 500;">
                           <tr>
                             <td width="50%" style="padding-bottom: 8px;">Device: Mobile App</td>
-                            <td width="50%" align="right" style="padding-bottom: 8px;">Time: ${new Date().toUTCString()}</td>
+                            <td width="50%" align="right" style="padding-bottom: 8px;">Time: ${istTime}</td>
                           </tr>
                           <tr>
                             <td>IP: Masked via Edge</td>
@@ -124,6 +127,7 @@ export default {
         </body>
         </html>`;
 
+        // WaitUntil is kept ONLY for OTP to make it ultra-fast. Attachments need strict await below.
         const sendEmailPromise = fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
@@ -169,7 +173,7 @@ export default {
     }
 
     // ==========================================
-    // ☁️ ROUTE 3: SEND CLOUD BACKUP (STRICT AWAIT FIX)
+    // ☁️ ROUTE 3: SEND CLOUD BACKUP (TXT FIX + STRICT AWAIT)
     // ==========================================
     if (url.pathname === "/send-backup" && request.method === "POST") {
       try {
@@ -178,7 +182,7 @@ export default {
         
         const base64Backup = backupData; 
         
-        // 🚨 SENIOR DEV FIX: Strict Await ensures we catch Brevo rejections immediately
+        // 🚨 SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
@@ -186,7 +190,7 @@ export default {
             to: [{ email: normalizedEmail }],
             subject: isEmergencyReset ? "🚨 SafeLocker: EMERGENCY RESET BACKUP" : "SafeLocker: Secure Cloud Backup",
             htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Your SafeLocker Backup</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.json` }]
+            attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.txt` }]
           })
         });
 
@@ -202,7 +206,7 @@ export default {
     }
 
     // ==========================================
-    // 🌪️ ROUTE 4: SEND WIPE BACKUP (STRICT AWAIT FIX)
+    // 🌪️ ROUTE 4: SEND WIPE BACKUP (TXT FIX + STRICT AWAIT)
     // ==========================================
     if (url.pathname === "/send-wipe-backup" && request.method === "POST") {
       try {
@@ -211,15 +215,15 @@ export default {
         
         const base64Backup = backupData;
 
-        // 🚨 SENIOR DEV FIX: Strict Await ensures we catch Brevo rejections immediately
+        // 🚨 SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
             subject: "🚨 SafeLocker: FINAL VAULT WIPE BACKUP",
-            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Final Encrypted Backup</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'}</p></div>`,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.json` }]
+            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Final Encrypted Backup</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'} IST</p></div>`,
+            attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.txt` }]
           })
         });
 
@@ -237,4 +241,4 @@ export default {
     return new Response("Endpoint Not Found", { status: 404 });
   },
 };
-                              
+      
