@@ -18,8 +18,60 @@ export default {
 
     const url = new URL(request.url);
 
+    // 🌟 PREMIUM EMAIL HTML GENERATOR FOR BACKUPS
+    const getPremiumBackupHTML = (heading, device, extraLabel, extraValue) => `
+    <!DOCTYPE html>
+    <html>
+    <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+      <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;">
+        <tr>
+          <td align="center">
+            
+            <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
+              <tr><td height="5" style="background: linear-gradient(90deg, #3B82F6, #6366F1); background-color: #3B82F6;"></td></tr>
+              
+              <tr>
+                <td style="padding: 36px 24px; text-align: center;">
+                  
+                  <div style="width: 72px; height: 72px; background-color: #EFF6FF; border-radius: 24px; margin: 0 auto 20px; display: inline-block;">
+                    <img src="https://img.icons8.com/ios-filled/50/3B82F6/shield.png" width="32" height="32" style="display: block; margin: 20px auto;" alt="shield" />
+                  </div>
+                  
+                  <h1 style="color: #0F172A; font-size: 22px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.5px;">${heading}</h1>
+                  <p style="color: #64748B; font-size: 15px; margin: 0 0 32px; line-height: 24px;">Your end-to-end encrypted vault data is attached below as a <strong>.txt</strong> file. Please download and store it securely.</p>
+
+                  <div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;">
+                    <p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Backup Details</p>
+                    <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #94A3B8; font-weight: 500;">
+                      <tr>
+                        <td width="30%" style="padding-bottom: 8px;">Device</td>
+                        <td width="70%" style="padding-bottom: 8px; color: #334155; font-weight: 600;">${device}</td>
+                      </tr>
+                      <tr>
+                        <td width="30%">${extraLabel}</td>
+                        <td width="70%" style="color: #334155; font-weight: 600;">${extraValue}</td>
+                      </tr>
+                    </table>
+                  </div>
+
+                </td>
+              </tr>
+            </table>
+
+            <p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">
+              SafeLocker Security Mail • End-to-End Protected<br>
+              <span style="font-size: 12px; font-weight: 500;">Please do not reply to this automated message.</span>
+            </p>
+
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>`;
+
+
     // ==========================================
-    // 🚀 ROUTE 1: SEND OTP (STYLE UNTOUCHED - IST TIME APPLIED)
+    // 🚀 ROUTE 1: SEND OTP (STYLE UNTOUCHED)
     // ==========================================
     if (url.pathname === "/send-otp" && request.method === "POST") {
       try {
@@ -57,7 +109,6 @@ export default {
           </td>
         `).join('');
 
-        // 🇮🇳 SENIOR DEV FIX: Cloudflare native IST Timezone conversion
         const istTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
 
         const htmlTemplate = `
@@ -127,7 +178,6 @@ export default {
         </body>
         </html>`;
 
-        // WaitUntil is kept ONLY for OTP to make it ultra-fast. Attachments need strict await below.
         const sendEmailPromise = fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
@@ -173,23 +223,28 @@ export default {
     }
 
     // ==========================================
-    // ☁️ ROUTE 3: SEND CLOUD BACKUP (TXT FIX + STRICT AWAIT)
+    // ☁️ ROUTE 3: SEND CLOUD BACKUP (SMART EXACT TEXTING)
     // ==========================================
     if (url.pathname === "/send-backup" && request.method === "POST") {
       try {
         const { email, backupData, hint, deviceId, isEmergencyReset } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-        
         const base64Backup = backupData; 
         
-        // 🛡️ SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
+        // 🚀 SENIOR DEV FIX: Exactly mapped subjects & headings
+        const mailSubject = isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP" : "🛡️ SafeLocker: ENCRYPTED BACKUP FILE";
+        const mailHeading = isEmergencyReset ? "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File" : "🛡️ SafeLocker: Your Encrypted Backup File";
+
+        // 🚀 Generate Premium Minimalist HTML
+        const premiumHtml = getPremiumBackupHTML(mailHeading, deviceId || 'Mobile App', 'Hint', hint || 'None');
+
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
-            subject: isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED BACKUP FILE" :"🛡️ SafeLocker: ENCRYPTED BACKUP FILE" ,
-            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>🛡️ SafeLocker: Your Encrypted Backup File</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
+            subject: mailSubject,
+            htmlContent: premiumHtml,
             attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.txt` }]
           })
         });
@@ -206,23 +261,28 @@ export default {
     }
 
     // ==========================================
-    // 🌪️ ROUTE 4: SEND WIPE BACKUP (TXT FIX + STRICT AWAIT)
+    // 🌪️ ROUTE 4: SEND WIPE BACKUP (SMART EXACT TEXTING)
     // ==========================================
     if (url.pathname === "/send-wipe-backup" && request.method === "POST") {
       try {
         const { email, backupData, device, time } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-        
         const base64Backup = backupData;
 
-        // 🛡️ SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
+        // 🚀 SENIOR DEV FIX: Hardcoded to strictly mean Wipe Backup
+        const mailSubject = "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP";
+        const mailHeading = "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File";
+
+        // 🚀 Generate Premium Minimalist HTML
+        const premiumHtml = getPremiumBackupHTML(mailHeading, device || 'Mobile App', 'Time', (time || 'Unknown') + ' IST');
+
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
-            subject: "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP",
-            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'} IST</p></div>`,
+            subject: mailSubject,
+            htmlContent: premiumHtml,
             attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.txt` }]
           })
         });
@@ -241,4 +301,4 @@ export default {
     return new Response("Endpoint Not Found", { status: 404 });
   },
 };
-      
+        
