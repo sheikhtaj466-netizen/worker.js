@@ -182,14 +182,14 @@ export default {
         
         const base64Backup = backupData; 
         
-        // 🚨 SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
+        // 🛡️ SENIOR DEV FIX: Strict Await ensures delivery, and .txt extension bypasses Brevo JSON block
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
-            subject: isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED BACKUP FILE" : "SafeLocker: Secure Cloud Backup",
-            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Your SafeLocker Backup</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
+            subject: isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED BACKUP FILE" ,
+            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>🛡️ SafeLocker: Your Encrypted Backup File</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
             attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.txt` }]
           })
         });
@@ -222,7 +222,7 @@ export default {
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
             subject: "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP",
-            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>Final Encrypted Backup</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'} IST</p></div>`,
+            htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File</h2><p>Device: ${device || 'Unknown'}</p><p>Time: ${time || 'Unknown'} IST</p></div>`,
             attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.txt` }]
           })
         });
