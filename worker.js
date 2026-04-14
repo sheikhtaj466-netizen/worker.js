@@ -188,7 +188,7 @@ export default {
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
             to: [{ email: normalizedEmail }],
-            subject: isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED BACKUP FILE" ,
+            subject: isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED BACKUP FILE" :"🛡️ SafeLocker: ENCRYPTED BACKUP FILE" ,
             htmlContent: `<div style="font-family: sans-serif; padding: 20px;"><h2>🛡️ SafeLocker: Your Encrypted Backup File</h2><p>Device: ${deviceId || 'Unknown'}</p><p>Hint: ${hint || 'None'}</p></div>`,
             attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.txt` }]
           })
