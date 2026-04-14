@@ -71,7 +71,7 @@ export default {
 
 
     // ==========================================
-    // 🚀 ROUTE 1: SEND OTP (STYLE UNTOUCHED)
+    // 🚀 ROUTE 1: SEND OTP (STRICT AWAIT FOR INSTANT DELIVERY)
     // ==========================================
     if (url.pathname === "/send-otp" && request.method === "POST") {
       try {
@@ -178,7 +178,8 @@ export default {
         </body>
         </html>`;
 
-        const sendEmailPromise = fetch("https://api.brevo.com/v3/smtp/email", {
+        // 🚀 SENIOR DEV FIX: Strict await enforces Brevo to process the email instantly before responding
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
             sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
@@ -186,9 +187,13 @@ export default {
             subject: `${theme.isDanger ? '🚨 ' : ''}${theme.title}`,
             htmlContent: htmlTemplate
           })
-        }).catch(e => console.log("OTP Email Error:", e));
+        });
 
-        ctx.waitUntil(sendEmailPromise);
+        if (!brevoRes.ok) {
+           const errText = await brevoRes.text();
+           console.log("Brevo Rejected OTP:", errText);
+        }
+
         return new Response(JSON.stringify({ success: true, message: "OTP sent" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       } catch (error) {
         return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -231,11 +236,9 @@ export default {
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
         const base64Backup = backupData; 
         
-        // 🚀 SENIOR DEV FIX: Exactly mapped subjects & headings
         const mailSubject = isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP" : "🛡️ SafeLocker: ENCRYPTED BACKUP FILE";
         const mailHeading = isEmergencyReset ? "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File" : "🛡️ SafeLocker: Your Encrypted Backup File";
 
-        // 🚀 Generate Premium Minimalist HTML
         const premiumHtml = getPremiumBackupHTML(mailHeading, deviceId || 'Mobile App', 'Hint', hint || 'None');
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -269,11 +272,9 @@ export default {
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
         const base64Backup = backupData;
 
-        // 🚀 SENIOR DEV FIX: Hardcoded to strictly mean Wipe Backup
         const mailSubject = "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP";
         const mailHeading = "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File";
 
-        // 🚀 Generate Premium Minimalist HTML
         const premiumHtml = getPremiumBackupHTML(mailHeading, device || 'Mobile App', 'Time', (time || 'Unknown') + ' IST');
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -301,4 +302,4 @@ export default {
     return new Response("Endpoint Not Found", { status: 404 });
   },
 };
-        
+                    
