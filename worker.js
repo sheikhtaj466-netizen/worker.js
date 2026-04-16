@@ -178,7 +178,6 @@ export default {
         </body>
         </html>`;
 
-        // 🚀 SENIOR DEV FIX: Strict await enforces Brevo to process the email instantly before responding
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
           body: JSON.stringify({
@@ -228,7 +227,7 @@ export default {
     }
 
     // ==========================================
-    // ☁️ ROUTE 3: SEND CLOUD BACKUP (SMART EXACT TEXTING)
+    // ☁️ ROUTE 3: SEND CLOUD BACKUP
     // ==========================================
     if (url.pathname === "/send-backup" && request.method === "POST") {
       try {
@@ -264,7 +263,7 @@ export default {
     }
 
     // ==========================================
-    // 🌪️ ROUTE 4: SEND WIPE BACKUP (SMART EXACT TEXTING)
+    // 🌪️ ROUTE 4: SEND WIPE BACKUP
     // ==========================================
     if (url.pathname === "/send-wipe-backup" && request.method === "POST") {
       try {
@@ -299,7 +298,48 @@ export default {
       }
     }
 
-    return new Response("Endpoint Not Found", { status: 404 });
-  },
-};
-                    
+    // ==========================================
+    // 📨 ROUTE 5: TEST RECOVERY MAIL (PREMIUM VERIFICATION)
+    // ==========================================
+    if (url.pathname === "/send-test-mail" && request.method === "POST") {
+      try {
+        const { email, templateData } = await request.json();
+        const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
+
+        // 🎨 Premium Email HTML exactly matching your OTP & Backup visual style
+        const htmlTemplate = `
+        <!DOCTYPE html>
+        <html>
+        <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;">
+            <tr>
+              <td align="center">
+                
+                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
+                  <tr><td height="5" style="background: linear-gradient(90deg, #10B981, #14B8A6); background-color: #10B981;"></td></tr>
+                  
+                  <tr>
+                    <td style="padding: 36px 24px; text-align: center;">
+                      
+                      <div style="width: 72px; height: 72px; background-color: #ECFDF5; border-radius: 24px; margin: 0 auto 20px; display: inline-block;">
+                        <img src="https://img.icons8.com/ios-filled/50/10B981/shield.png" width="32" height="32" style="display: block; margin: 20px auto;" alt="icon" />
+                      </div>
+                      
+                      <h1 style="color: #0F172A; font-size: 24px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.5px;">${templateData.heading}</h1>
+                      
+                      <div style="text-align: left; padding: 10px 0;">
+                        <p style="color: #475569; font-size: 15px; margin: 0 0 24px; line-height: 1.6;">
+                          ${templateData.body.replace(/\n\n/g, '<br><br>')}
+                        </p>
+
+                        <div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 16px; margin-bottom: 28px; border-radius: 0 12px 12px 0;">
+                          <p style="color: #065F46; font-size: 15px; font-weight: 700; margin: 0;">✓ ${templateData.statusBadge}</p>
+                        </div>
+
+                        <div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;">
+                          <p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Security Audit Trail</p>
+                          <p style="font-size: 13px; color: #94A3B8; font-weight: 500; margin: 0; line-height: 22px;">
+                            ${templateData.context.replace(/\n/g, '<br>')}
+                          </p>
+                        </div>
+             </
