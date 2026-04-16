@@ -342,4 +342,44 @@ export default {
                             ${templateData.context.replace(/\n/g, '<br>')}
                           </p>
                         </div>
-             </
+                      </div>
+
+                    </td>
+                  </tr>
+                </table>
+
+                <p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">
+                  SafeLocker Security Mail • End-to-End Protected<br>
+                  <span style="font-size: 12px; font-weight: 500;">${templateData.footer}</span>
+                </p>
+
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>`;
+
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
+          body: JSON.stringify({
+            sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
+            to: [{ email: normalizedEmail }],
+            subject: templateData.subject,
+            htmlContent: htmlTemplate
+          })
+        });
+
+        if (!brevoRes.ok) {
+           const errText = await brevoRes.text();
+           throw new Error(`Brevo Rejected: ${errText}`);
+        }
+
+        return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      } catch (error) {
+         return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    }
+
+    return new Response("Endpoint Not Found", { status: 404 });
+  },
+};
