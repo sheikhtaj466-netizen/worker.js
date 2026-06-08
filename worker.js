@@ -8,11 +8,30 @@ export default {
 
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
+    // 🚀 MASTER FIX 1: Missing Environment Variables Check
+    // Agar variables set nahi hain, toh 1016 error ki jagah clean JSON error aayega
+    if (!env.UPSTASH_URL || !env.UPSTASH_TOKEN || !env.BREVO_API_KEY || !env.SENDER_EMAIL) {
+      return new Response(JSON.stringify({ 
+        success: false, 
+        message: "Backend Error: Cloudflare Settings me UPSTASH_URL ya BREVO_API_KEY missing hai!" 
+      }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // 🚀 MASTER FIX 2: Auto 'https://' addition to prevent 1016 Relative URL Bug
+    let upstashUrl = env.UPSTASH_URL;
+    if (!upstashUrl.startsWith('http')) {
+      upstashUrl = 'https://' + upstashUrl;
+    }
+
     const redis = async (command, ...args) => {
-      const response = await fetch(env.UPSTASH_URL, {
+      const response = await fetch(upstashUrl, {
         method: "POST", headers: { Authorization: `Bearer ${env.UPSTASH_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify([command, ...args]),
       });
+      
+      if (!response.ok) {
+        throw new Error(`Database Fetch Error: ${response.statusText}`);
+      }
       return (await response.json()).result;
     };
 
@@ -71,7 +90,7 @@ export default {
 
 
     // ==========================================
-    // 🚀 ROUTE 1: SEND OTP (STRICT AWAIT FOR INSTANT DELIVERY)
+    // 🚀 ROUTE 1: SEND OTP
     // ==========================================
     if (url.pathname === "/send-otp" && request.method === "POST") {
       try {
@@ -299,14 +318,13 @@ export default {
     }
 
     // ==========================================
-    // 📨 ROUTE 5: TEST RECOVERY MAIL (PREMIUM VERIFICATION)
+    // 📨 ROUTE 5: TEST RECOVERY MAIL
     // ==========================================
     if (url.pathname === "/send-test-mail" && request.method === "POST") {
       try {
         const { email, templateData } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
 
-        // 🎨 Premium Email HTML exactly matching your OTP & Backup visual style
         const htmlTemplate = `
         <!DOCTYPE html>
         <html>
@@ -380,6 +398,6 @@ export default {
       }
     }
 
-    return new Response("Endpoint Not Found", { status: 404 });
+    return new Response(JSON.stringify({ success: false, message: "Endpoint Not Found" }), { status: 404, headers: corsHeaders });
   },
 };
