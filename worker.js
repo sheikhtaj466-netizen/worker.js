@@ -9,7 +9,6 @@ export default {
     if (request.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
     // 🚀 MASTER FIX 1: Missing Environment Variables Check
-    // Agar variables set nahi hain, toh 1016 error ki jagah clean JSON error aayega
     if (!env.UPSTASH_URL || !env.UPSTASH_TOKEN || !env.BREVO_API_KEY || !env.SENDER_EMAIL) {
       return new Response(JSON.stringify({ 
         success: false, 
@@ -17,7 +16,7 @@ export default {
       }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // 🚀 MASTER FIX 2: Auto 'https://' addition to prevent 1016 Relative URL Bug
+    // 🚀 MASTER FIX 2: Auto 'https://' addition
     let upstashUrl = env.UPSTASH_URL;
     if (!upstashUrl.startsWith('http')) {
       upstashUrl = 'https://' + upstashUrl;
@@ -28,10 +27,7 @@ export default {
         method: "POST", headers: { Authorization: `Bearer ${env.UPSTASH_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify([command, ...args]),
       });
-      
-      if (!response.ok) {
-        throw new Error(`Database Fetch Error: ${response.statusText}`);
-      }
+      if (!response.ok) throw new Error(`Database Fetch Error: ${response.statusText}`);
       return (await response.json()).result;
     };
 
@@ -45,20 +41,15 @@ export default {
       <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;">
         <tr>
           <td align="center">
-            
             <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
               <tr><td height="5" style="background: linear-gradient(90deg, #3B82F6, #6366F1); background-color: #3B82F6;"></td></tr>
-              
               <tr>
                 <td style="padding: 36px 24px; text-align: center;">
-                  
                   <div style="width: 72px; height: 72px; background-color: #EFF6FF; border-radius: 24px; margin: 0 auto 20px; display: inline-block;">
                     <img src="https://img.icons8.com/ios-filled/50/3B82F6/shield.png" width="32" height="32" style="display: block; margin: 20px auto;" alt="shield" />
                   </div>
-                  
                   <h1 style="color: #0F172A; font-size: 22px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.5px;">${heading}</h1>
-                  <p style="color: #64748B; font-size: 15px; margin: 0 0 32px; line-height: 24px;">Your end-to-end encrypted vault data is attached below as a <strong>.txt</strong> file. Please download and store it securely.</p>
-
+                  <p style="color: #64748B; font-size: 15px; margin: 0 0 32px; line-height: 24px;">Your end-to-end encrypted vault data is attached below as a <strong>.bak</strong> file. Please download and store it securely.</p>
                   <div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;">
                     <p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Backup Details</p>
                     <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #94A3B8; font-weight: 500;">
@@ -72,22 +63,18 @@ export default {
                       </tr>
                     </table>
                   </div>
-
                 </td>
               </tr>
             </table>
-
             <p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">
               SafeLocker Security Mail • End-to-End Protected<br>
               <span style="font-size: 12px; font-weight: 500;">Please do not reply to this automated message.</span>
             </p>
-
           </td>
         </tr>
       </table>
     </body>
     </html>`;
-
 
     // ==========================================
     // 🚀 ROUTE 1: SEND OTP
@@ -97,12 +84,10 @@ export default {
         const body = await request.json();
         const { email, otpType } = body;
         if (!email) throw new Error("Email missing from app");
-
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-
         const cooldownTTL = await redis("TTL", `cooldown:${normalizedEmail}`);
         if (cooldownTTL > 0) return new Response(JSON.stringify({ success: false, message: `Wait ${cooldownTTL}s` }), { status: 429, headers: corsHeaders });
-
+        
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const today = new Date().toISOString().split('T')[0];
 
@@ -119,103 +104,19 @@ export default {
           'VAULT_WIPE': { accent: '#EF4444', grad: '#F97316', bgTint: '#FEF2F2', icon: 'https://img.icons8.com/ios-filled/50/EF4444/warning-shield.png', title: 'Authorize emergency vault wipe', sub: 'OTP required to permanently destroy local vault data.', isDanger: true }
         };
         const theme = config[otpType] || config['VERIFY_EMAIL'];
-
-        const otpSegments = otp.split('').map(digit => `
-          <td style="padding: 0 4px;">
-            <div style="width: 44px; height: 56px; background-color: ${theme.bgTint}; border: 1.5px solid ${theme.accent}; border-radius: 12px; text-align: center; line-height: 56px; font-size: 32px; font-weight: 900; color: ${theme.accent}; font-family: monospace;">
-              ${digit}
-            </div>
-          </td>
-        `).join('');
-
+        
+        const otpSegments = otp.split('').map(digit => `<td style="padding: 0 4px;"><div style="width: 44px; height: 56px; background-color: ${theme.bgTint}; border: 1.5px solid ${theme.accent}; border-radius: 12px; text-align: center; line-height: 56px; font-size: 32px; font-weight: 900; color: ${theme.accent}; font-family: monospace;">${digit}</div></td>`).join('');
         const istTime = new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' }) + ' IST';
 
-        const htmlTemplate = `
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;">
-            <tr>
-              <td align="center">
-                
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
-                  <tr><td height="5" style="background: linear-gradient(90deg, ${theme.accent}, ${theme.grad}); background-color: ${theme.accent};"></td></tr>
-                  
-                  <tr>
-                    <td style="padding: 36px 24px; text-align: center;">
-                      
-                      <div style="width: 72px; height: 72px; background-color: ${theme.bgTint}; border-radius: 24px; margin: 0 auto 20px; display: inline-block;">
-                        <img src="${theme.icon}" width="32" height="32" style="display: block; margin: 20px auto;" alt="icon" />
-                      </div>
-                      
-                      <h1 style="color: #0F172A; font-size: 26px; font-weight: 900; margin: 0 0 8px; letter-spacing: -0.5px;">${theme.title}</h1>
-                      <p style="color: #64748B; font-size: 16px; margin: 0 0 28px;">${theme.sub}</p>
-
-                      ${theme.isDanger ? `
-                      <div style="background-color: #FEF2F2; padding: 14px; border-radius: 14px; border: 1px solid #FECACA; margin-bottom: 28px;">
-                        <p style="color: #DC2626; font-size: 14px; font-weight: 700; margin: 0;">⚠️ This action permanently erases local encrypted vault data.</p>
-                      </div>` : ''}
-
-                      <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin-bottom: 28px;">
-                        <tr>${otpSegments}</tr>
-                      </table>
-
-                      <table border="0" cellpadding="0" cellspacing="0" align="center" style="margin-bottom: 36px;">
-                        <tr>
-                          <td style="background-color: ${theme.bgTint}; padding: 8px 16px; border-radius: 999px;">
-                            <span style="color: ${theme.accent}; font-size: 13px; font-weight: 700;">⏱️ Expires in 5 minutes</span>
-                          </td>
-                        </tr>
-                      </table>
-
-                      <div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;">
-                        <p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Security Meta Data</p>
-                        <table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #94A3B8; font-weight: 500;">
-                          <tr>
-                            <td width="50%" style="padding-bottom: 8px;">Device: Mobile App</td>
-                            <td width="50%" align="right" style="padding-bottom: 8px;">Time: ${istTime}</td>
-                          </tr>
-                          <tr>
-                            <td>IP: Masked via Edge</td>
-                            <td align="right">Origin: Encrypted Vault</td>
-                          </tr>
-                        </table>
-                      </div>
-
-                    </td>
-                  </tr>
-                </table>
-
-                <p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">
-                  SafeLocker Security Mail • End-to-End Protected<br>
-                  <span style="font-size: 12px; font-weight: 500;">Please do not reply to this automated message.</span>
-                </p>
-
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>`;
+        const htmlTemplate = `<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"><table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;"><tr><td align="center"><table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);"><tr><td height="5" style="background: linear-gradient(90deg, ${theme.accent}, ${theme.grad}); background-color: ${theme.accent};"></td></tr><tr><td style="padding: 36px 24px; text-align: center;"><div style="width: 72px; height: 72px; background-color: ${theme.bgTint}; border-radius: 24px; margin: 0 auto 20px; display: inline-block;"><img src="${theme.icon}" width="32" height="32" style="display: block; margin: 20px auto;" alt="icon" /></div><h1 style="color: #0F172A; font-size: 26px; font-weight: 900; margin: 0 0 8px; letter-spacing: -0.5px;">${theme.title}</h1><p style="color: #64748B; font-size: 16px; margin: 0 0 28px;">${theme.sub}</p>${theme.isDanger ? `<div style="background-color: #FEF2F2; padding: 14px; border-radius: 14px; border: 1px solid #FECACA; margin-bottom: 28px;"><p style="color: #DC2626; font-size: 14px; font-weight: 700; margin: 0;">⚠️ This action permanently erases local encrypted vault data.</p></div>` : ''}<table border="0" cellpadding="0" cellspacing="0" align="center" style="margin-bottom: 28px;"><tr>${otpSegments}</tr></table><table border="0" cellpadding="0" cellspacing="0" align="center" style="margin-bottom: 36px;"><tr><td style="background-color: ${theme.bgTint}; padding: 8px 16px; border-radius: 999px;"><span style="color: ${theme.accent}; font-size: 13px; font-weight: 700;">⏱️ Expires in 5 minutes</span></td></tr></table><div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;"><p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Security Meta Data</p><table width="100%" border="0" cellpadding="0" cellspacing="0" style="font-size: 13px; color: #94A3B8; font-weight: 500;"><tr><td width="50%" style="padding-bottom: 8px;">Device: Mobile App</td><td width="50%" align="right" style="padding-bottom: 8px;">Time: ${istTime}</td></tr><tr><td>IP: Masked via Edge</td><td align="right">Origin: Encrypted Vault</td></tr></table></div></td></tr></table><p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">SafeLocker Security Mail • End-to-End Protected<br><span style="font-size: 12px; font-weight: 500;">Please do not reply to this automated message.</span></p></td></tr></table></body></html>`;
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
-          body: JSON.stringify({
-            sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
-            to: [{ email: normalizedEmail }],
-            subject: `${theme.isDanger ? '🚨 ' : ''}${theme.title}`,
-            htmlContent: htmlTemplate
-          })
+          body: JSON.stringify({ sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL }, to: [{ email: normalizedEmail }], subject: `${theme.isDanger ? '🚨 ' : ''}${theme.title}`, htmlContent: htmlTemplate })
         });
-
-        if (!brevoRes.ok) {
-           const errText = await brevoRes.text();
-           console.log("Brevo Rejected OTP:", errText);
-        }
-
+        if (!brevoRes.ok) console.log("Brevo Rejected OTP:", await brevoRes.text());
         return new Response(JSON.stringify({ success: true, message: "OTP sent" }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-        return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      } catch (error) { return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     }
 
     // ==========================================
@@ -225,10 +126,8 @@ export default {
       try {
         const { email, otp } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-
         const currentTries = await redis("GET", `tries:${normalizedEmail}`);
         if (currentTries && parseInt(currentTries) >= 5) throw new Error("Account locked: Too many attempts.");
-
         const storedOtp = await redis("GET", `otp:${normalizedEmail}`);
         if (!storedOtp) throw new Error("OTP expired or invalid.");
 
@@ -240,9 +139,7 @@ export default {
           await redis("EXPIRE", `tries:${normalizedEmail}`, 300); 
           throw new Error("Incorrect OTP.");
         }
-      } catch (error) {
-        return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      } catch (error) { return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     }
 
     // ==========================================
@@ -252,11 +149,12 @@ export default {
       try {
         const { email, backupData, hint, deviceId, isEmergencyReset } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-        const base64Backup = backupData; 
+        
+        // 🚀 CRITICAL FIX: Clean base64 string for Brevo API
+        const base64Backup = backupData.replace(/^data:([A-Za-z-+/]+);base64,/, ''); 
         
         const mailSubject = isEmergencyReset ? "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP" : "🛡️ SafeLocker: ENCRYPTED BACKUP FILE";
         const mailHeading = isEmergencyReset ? "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File" : "🛡️ SafeLocker: Your Encrypted Backup File";
-
         const premiumHtml = getPremiumBackupHTML(mailHeading, deviceId || 'Mobile App', 'Hint', hint || 'None');
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -266,19 +164,13 @@ export default {
             to: [{ email: normalizedEmail }],
             subject: mailSubject,
             htmlContent: premiumHtml,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.txt` }]
+            // 🚀 Changed file extension to .bak to match mobile
+            attachment: [{ content: base64Backup, name: `SafeLocker_Backup_${new Date().toISOString().split('T')[0]}.bak` }]
           })
         });
-
-        if (!brevoRes.ok) {
-           const errText = await brevoRes.text();
-           throw new Error(`Brevo Rejected: ${errText}`);
-        }
-
+        if (!brevoRes.ok) throw new Error(`Brevo Rejected: ${await brevoRes.text()}`);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-         return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      } catch (error) { return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     }
 
     // ==========================================
@@ -288,11 +180,12 @@ export default {
       try {
         const { email, backupData, device, time } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
-        const base64Backup = backupData;
+        
+        // 🚀 CRITICAL FIX: Clean base64 string for Brevo API
+        const base64Backup = backupData.replace(/^data:([A-Za-z-+/]+);base64,/, '');
 
         const mailSubject = "🛡️ SafeLocker: ENCRYPTED PRE-RESET BACKUP";
         const mailHeading = "🛡️ SafeLocker: Your Encrypted Pre-Reset Backup File";
-
         const premiumHtml = getPremiumBackupHTML(mailHeading, device || 'Mobile App', 'Time', (time || 'Unknown') + ' IST');
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
@@ -302,19 +195,12 @@ export default {
             to: [{ email: normalizedEmail }],
             subject: mailSubject,
             htmlContent: premiumHtml,
-            attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.txt` }]
+            attachment: [{ content: base64Backup, name: `SafeLocker_Wipe_Backup_${Date.now()}.bak` }]
           })
         });
-
-        if (!brevoRes.ok) {
-           const errText = await brevoRes.text();
-           throw new Error(`Brevo Rejected: ${errText}`);
-        }
-
+        if (!brevoRes.ok) throw new Error(`Brevo Rejected: ${await brevoRes.text()}`);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-        return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      } catch (error) { return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     }
 
     // ==========================================
@@ -325,79 +211,18 @@ export default {
         const { email, templateData } = await request.json();
         const normalizedEmail = email.replace(/['"]+/g, '').toLowerCase().trim();
 
-        const htmlTemplate = `
-        <!DOCTYPE html>
-        <html>
-        <body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-          <table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;">
-            <tr>
-              <td align="center">
-                
-                <table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);">
-                  <tr><td height="5" style="background: linear-gradient(90deg, #10B981, #14B8A6); background-color: #10B981;"></td></tr>
-                  
-                  <tr>
-                    <td style="padding: 36px 24px; text-align: center;">
-                      
-                      <div style="width: 72px; height: 72px; background-color: #ECFDF5; border-radius: 24px; margin: 0 auto 20px; display: inline-block;">
-                        <img src="https://img.icons8.com/ios-filled/50/10B981/shield.png" width="32" height="32" style="display: block; margin: 20px auto;" alt="icon" />
-                      </div>
-                      
-                      <h1 style="color: #0F172A; font-size: 24px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.5px;">${templateData.heading}</h1>
-                      
-                      <div style="text-align: left; padding: 10px 0;">
-                        <p style="color: #475569; font-size: 15px; margin: 0 0 24px; line-height: 1.6;">
-                          ${templateData.body.replace(/\n\n/g, '<br><br>')}
-                        </p>
-
-                        <div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 16px; margin-bottom: 28px; border-radius: 0 12px 12px 0;">
-                          <p style="color: #065F46; font-size: 15px; font-weight: 700; margin: 0;">✓ ${templateData.statusBadge}</p>
-                        </div>
-
-                        <div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;">
-                          <p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Security Audit Trail</p>
-                          <p style="font-size: 13px; color: #94A3B8; font-weight: 500; margin: 0; line-height: 22px;">
-                            ${templateData.context.replace(/\n/g, '<br>')}
-                          </p>
-                        </div>
-                      </div>
-
-                    </td>
-                  </tr>
-                </table>
-
-                <p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">
-                  SafeLocker Security Mail • End-to-End Protected<br>
-                  <span style="font-size: 12px; font-weight: 500;">${templateData.footer}</span>
-                </p>
-
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>`;
+        const htmlTemplate = `<!DOCTYPE html><html><body style="margin: 0; padding: 0; background-color: #F8FAFC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;"><table width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color: #F8FAFC; padding: 24px 16px;"><tr><td align="center"><table width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width: 620px; background-color: #FFFFFF; border-radius: 28px; overflow: hidden; border: 1.5px solid #E2E8F0; box-shadow: 0 10px 30px rgba(15,23,42,0.06);"><tr><td height="5" style="background: linear-gradient(90deg, #10B981, #14B8A6); background-color: #10B981;"></td></tr><tr><td style="padding: 36px 24px; text-align: center;"><div style="width: 72px; height: 72px; background-color: #ECFDF5; border-radius: 24px; margin: 0 auto 20px; display: inline-block;"><img src="https://img.icons8.com/ios-filled/50/10B981/shield.png" width="32" height="32" style="display: block; margin: 20px auto;" alt="icon" /></div><h1 style="color: #0F172A; font-size: 24px; font-weight: 900; margin: 0 0 12px; letter-spacing: -0.5px;">${templateData.heading}</h1><div style="text-align: left; padding: 10px 0;"><p style="color: #475569; font-size: 15px; margin: 0 0 24px; line-height: 1.6;">${templateData.body.replace(/\n\n/g, '<br><br>')}</p><div style="background-color: #ECFDF5; border-left: 4px solid #10B981; padding: 16px; margin-bottom: 28px; border-radius: 0 12px 12px 0;"><p style="color: #065F46; font-size: 15px; font-weight: 700; margin: 0;">✓ ${templateData.statusBadge}</p></div><div style="background-color: #F8FAFC; border-radius: 16px; padding: 18px; text-align: left; border: 1px solid #F1F5F9;"><p style="margin: 0 0 10px; font-size: 12px; color: #64748B; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px;">Security Audit Trail</p><p style="font-size: 13px; color: #94A3B8; font-weight: 500; margin: 0; line-height: 22px;">${templateData.context.replace(/\n/g, '<br>')}</p></div></div></td></tr></table><p style="text-align: center; font-size: 13px; color: #94A3B8; font-weight: 600; margin-top: 24px; line-height: 20px;">SafeLocker Security Mail • End-to-End Protected<br><span style="font-size: 12px; font-weight: 500;">${templateData.footer}</span></p></td></tr></table></body></html>`;
 
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST", headers: { "accept": "application/json", "api-key": env.BREVO_API_KEY, "content-type": "application/json" },
-          body: JSON.stringify({
-            sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL },
-            to: [{ email: normalizedEmail }],
-            subject: templateData.subject,
-            htmlContent: htmlTemplate
-          })
+          body: JSON.stringify({ sender: { name: "SafeLocker Security", email: env.SENDER_EMAIL }, to: [{ email: normalizedEmail }], subject: templateData.subject, htmlContent: htmlTemplate })
         });
-
-        if (!brevoRes.ok) {
-           const errText = await brevoRes.text();
-           throw new Error(`Brevo Rejected: ${errText}`);
-        }
-
+        if (!brevoRes.ok) throw new Error(`Brevo Rejected: ${await brevoRes.text()}`);
         return new Response(JSON.stringify({ success: true }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      } catch (error) {
-         return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+      } catch (error) { return new Response(JSON.stringify({ success: false, message: error.message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }); }
     }
 
     return new Response(JSON.stringify({ success: false, message: "Endpoint Not Found" }), { status: 404, headers: corsHeaders });
   },
 };
+                                                 
